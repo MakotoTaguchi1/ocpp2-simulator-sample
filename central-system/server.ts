@@ -55,6 +55,20 @@ wss.on("connection", (ws) => {
             });
             break;
 
+          case "StatusNotification":
+            const statusResponse = [3, messageId, {}];
+            ws.send(JSON.stringify(statusResponse));
+            logger.info("StatusNotificationを受信", {
+              connectorStatus: payload.connectorStatus,
+              evseId: payload.evseId,
+              connectorId: payload.connectorId,
+              timestamp: payload.timestamp,
+            });
+            logger.info("StatusNotificationレスポンスを送信", {
+              response: statusResponse,
+            });
+            break;
+
           case "Heartbeat":
             const heartbeatResponse = [
               3,

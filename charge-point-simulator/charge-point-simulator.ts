@@ -3,11 +3,15 @@ import {
   BootNotificationResponse,
   HeartbeatRequest,
   HeartbeatResponse,
+  StatusNotificationRequest,
   OcppClient,
   OcppError,
+  StatusNotificationResponse,
 } from "@extrawest/node-ts-ocpp";
 
-const chargingPointSimple = new OcppClient("CP1111");
+const centralSystemEndpoint = "ws://localhost:9000/";
+const cpId = "CP1111";
+const chargingPointSimple = new OcppClient(cpId);
 let heartbeatInterval: NodeJS.Timeout;
 
 chargingPointSimple.on("error", (err: Error) => {
@@ -46,19 +50,36 @@ const sendHeartbeat = async () => {
 };
 
 chargingPointSimple.on("connect", async () => {
-  const boot: BootNotificationRequest = {
+  const bootReq: BootNotificationRequest = {
     chargingStation: {
       model: "someModel",
       vendorName: "someVendor",
     },
     reason: "Unknown",
   };
+  const statusNotificationReq: StatusNotificationRequest = {
+    timestamp: new Date().toISOString(),
+    connectorStatus: "Unavailable", // 初期状態は利用不可。CSからのChangeAvailabilityによりAvailableに変更される
+    evseId: 1,
+    connectorId: 1,
+  };
 
   try {
+    // 1. BootNotificationを送信
     const bootResp: BootNotificationResponse =
-      await chargingPointSimple.callRequest("BootNotification", boot);
+      await chargingPointSimple.callRequest("BootNotification", bootReq);
     if (bootResp.status === "Accepted") {
       console.log("Bootnotification accepted");
+
+      // 2. StatusNotificationを送信
+      console.log("Sending StatusNotification...");
+      const response = await chargingPointSimple.callRequest(
+        "StatusNotification",
+        statusNotificationReq
+      );
+      console.log("StatusNotification response received:", response);
+
+      // 3. heartbeatを開始
       await startHeartbeat(bootResp.interval);
     }
   } catch (e) {
@@ -68,4 +89,4 @@ chargingPointSimple.on("connect", async () => {
   }
 });
 
-chargingPointSimple.connect("ws://localhost:9000/");
+chargingPointSimple.connect(centralSystemEndpoint);
